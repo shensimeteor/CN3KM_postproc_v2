@@ -3,7 +3,7 @@ use File::Copy;
 #v2 contains:
 #update, sishen, 20170713, add subdomain plot (require postproc.subdom.pl--same format with verif_sfcobs.input.pl)
 #update, sishen, 20170716, move process_qc_out_SfcObs & cpto bank earlier 
-#update, sishen, 20170717, add commandline argument (-noplotobs, -nothinobs)
+#update, sishen, 20170717, add cmdline opts (-noplotobs, -nothinobs); adopt clean_datedir from 3KMT; use tool_file_wait_sizeconverge, to avoid emprical waiting seconds
 
 #==============================================================================#
 # 1. Define inputs
@@ -479,12 +479,13 @@ use File::Copy;
 # 4. Process the first date
 #==============================================================================#
       &debug($DEBUG, "Waiting for file ${filename}\n");
-      $flag=&tool_file_wait(125,60,$filename); 
+#      $flag=&tool_file_wait(125,60,$filename); 
+      $flag=&tool_file_wait_sizeconverge($filename,1000,10,2,1);
       if ( $flag =~ /Fail/ ) {
           print "wait fails!";
           exit(-1);
       }else{
-          sleep(7); #wait for file write
+ #         sleep(7); #wait for file write
           foreach $dom (@domains)  {
               #reformat aux3 (similar with GECN9KME/ensproc_dom_aux3/nco_wrf_aux3)
               chdir($WORK_DIR_STEP);
@@ -551,6 +552,8 @@ use File::Copy;
             }
       }
       system ("date");
+      
+      &clean_datedir($tempdir, 4);
 
       $d =  &hh_advan_date($d, $every_hour);
       $nbdd++;
@@ -1248,6 +1251,42 @@ print "Check $filename and $filenamebis\n";
             system ("mv $file_out $dir_out\/$file_out");
         }
     }
+ }
+ 
+ #keep recent nkeep(hours) datedir and their companion datedir used for RR1h,CG,WLPI plots, clean others
+ sub clean_datedir {
+     my($dir, $nkeep)=@_;
+     @datedir = `ls -d $dir/2*`;
+     if( scalar (@datedir) == 0) {
+         return;
+     }
+     @rev_datedir=reverse(@datedir);
+     $cnt=0;
+     %hr_cnts=(1 => 0, 3 => 0, 6 => 0, 12 => 0, 24 => 0);
+     for $ddir (@rev_datedir) {
+         $dir_delete = 1; #default to remove
+         chomp($ddir);
+         $hr=`basename $ddir | cut -c 9-10`;
+         chomp($hr);
+         $cnt+=1;
+         if ($cnt<=$nkeep) {
+             $dir_delete=0;
+             next;
+         }
+         for $h (keys(%hr_cnts)) {
+             if ($hr % $h == 0) {
+                 $hr_cnts{$h}+=1;
+                 if($hr_cnts{$h} <= 1) {
+                     $dir_delete = 0;
+                 }
+             }
+        }
+        if($dir_delete == 1) {
+            $cmd="rm -rf $ddir";
+            print(" in clean_datedir: $cmd \n");
+            system($cmd);
+        }
+     }
  }
 
   sub clean_dir {
