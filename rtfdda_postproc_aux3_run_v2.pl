@@ -407,8 +407,9 @@ use File::Copy;
               $thined_obs_file="$tempdir/$d/obs_thin/d$domi/$d.hourly.obs_sgl.nc";
               $dir_thined_obs_bank="$LOC_WEB_DIR/../thined_obs/d${domi}";
               system("test -d $dir_thined_obs_bank || mkdir -p $dir_thined_obs_bank");
-              system("cp $thined_obs_file $dir_thined_obs_bank/");
+              system("mv $thined_obs_file $dir_thined_obs_bank/");
           }
+          system("rm -rf $tempdir/$d");
           $d=&hh_advan_date($d, 1);
       }
   }
@@ -479,8 +480,8 @@ use File::Copy;
 # 4. Process the first date
 #==============================================================================#
       &debug($DEBUG, "Waiting for file ${filename}\n");
-#      $flag=&tool_file_wait(125,60,$filename); 
-      $flag=&tool_file_wait_sizeconverge($filename,1000,10,2,1);
+      $flag=&tool_file_wait(30,60,$filename);  #make sure $filename exist
+      $flag=&tool_file_wait_sizeconverge($filename,1000,10,2,1); #make sure its size converges
       if ( $flag =~ /Fail/ ) {
           print "wait fails!";
           exit(-1);
@@ -746,7 +747,7 @@ print "Check $filename and $filenamebis\n";
         symlink("$ENSPROCS/plot_SFC_and_obs_WMXDBZ.ncl", "plot_SFC_and_obs_WMXDBZ.ncl");
         #plot
         $fda=&tool_date12_to_outfilename("auxhist3_d0${wrfdomid}_", "${valid_time}00", "");
-        while (`ps -ef | grep "ncl.*\.ncl" | grep -v grep |wc -l` > 7) {
+        while (`ps -ef | grep "ncl.*\.ncl" | grep -v grep |wc -l` > 10) {
             sleep 2;
             print "wait to submit ncl ++  ";
         }
@@ -862,7 +863,7 @@ print "Check $filename and $filenamebis\n";
             $n_proc_ncl=`ps -ef | grep "ncl.*\\.ncl" | wc -l`;
             chomp($n_proc_ncl);
             print("n_proc_ncl=$n_proc_ncl\n");
-            while ($n_proc_ncl > 5) {
+            while ($n_proc_ncl > 10) {
                   sleep 2;
                   print("wait for process ncl");
                   $n_proc_ncl=`ps -ef | grep "ncl.*\\.ncl" |wc -l`;
