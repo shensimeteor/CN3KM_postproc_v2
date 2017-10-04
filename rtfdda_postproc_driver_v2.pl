@@ -112,6 +112,9 @@ use File::Copy;
   $mydir=$0;
   $mydir =~ /(.+\/)/;
   $mydir = $1;
-  print("$mydir/rtfdda_postproc_aux3_run_v2.pl @ARGV >& $mylogdir/zoust.postproc.log \n");
-  system("$mydir/rtfdda_postproc_aux3_run_v2.pl @ARGV >& $mylogdir/zoust.postproc.log");
+  if(! $mydir) {
+      $mydir=".";
+  }
+  print("$mydir/rtfdda_postproc_aux3_run_v2.pl @ARGV -nothinobs >& $mylogdir/zoust.postproc.log \n");
+  system("$mydir/rtfdda_postproc_aux3_run_v2.pl @ARGV -nothinobs >& $mylogdir/zoust.postproc.log");
   

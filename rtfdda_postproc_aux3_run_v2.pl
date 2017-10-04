@@ -4,6 +4,7 @@ use File::Copy;
 #update, sishen, 20170713, add subdomain plot (require postproc.subdom.pl--same format with verif_sfcobs.input.pl)
 #update, sishen, 20170716, move process_qc_out_SfcObs & cpto bank earlier 
 #update, sishen, 20170717, add cmdline opts (-noplotobs, -nothinobs); adopt clean_datedir from 3KMT; use tool_file_wait_sizeconverge, to avoid emprical waiting seconds
+#update, sishen, 20171002, remove plot WRF_F SFC+OBS (moved to verif_SFC_OBS)
 
 #==============================================================================#
 # 1. Define inputs
@@ -397,7 +398,7 @@ use File::Copy;
           #test to cp out
           $dir_thin_cpout=$LOC_WEB_DIR;
           #sishen, prepare thinned obs
-          $com_obs = "${GSJOBDIR}/process_qc_out_SfcObs.pl $THIS_CYCLE $d $d 3 $JOB_ID $MEM_NAME $tempdir/../ $dir_thin_cpout>& $mylogdir/zobs.sfcobs.$d";
+          $com_obs = "${GSJOBDIR}/process_qc_out_SfcObs.pl $THIS_CYCLE $d $d 3 $JOB_ID $MEM_NAME $tempdir/../ >& $mylogdir/zobs.sfcobs.$d";
           print("$com_obs \n");
           system("date");
           system ("$com_obs");
@@ -533,7 +534,8 @@ use File::Copy;
                 }
                 print($tempdir."\n");
                 #SFC_and_obs, wind_HGT, wind_RS
-                &do_plots_ncl_v2 ($PLOTS_DIR, $idom, $THIS_CYCLE, $d, $NCL_WEB_DIR, $thined_obs_file1);
+                #&do_plots_ncl_v2 ($PLOTS_DIR, $idom, $THIS_CYCLE, $d, $NCL_WEB_DIR, $thined_obs_file1);
+                &do_plots_ncl_v2 ($PLOTS_DIR, $idom, $THIS_CYCLE, $d, $NCL_WEB_DIR);
                 #Rain, WMXDBZ, CG, WLPI
                 &do_plots_ncl2_v2($PLOTS_DIR, $idom, $THIS_CYCLE, $d, $NCL_WEB_DIR);
             }
@@ -827,7 +829,7 @@ print "Check $filename and $filenamebis\n";
         print "to mv gifs to webdest\n";
         system("cp -rf 20* $dest/");
         system("cp -rf 20* $dest/../cycles/$cycle/");
-        system("mv *log $mylogdir/");
+#        system("mv *log $mylogdir/");
   }
 
   sub do_plots_ncl_v2 {
@@ -850,7 +852,7 @@ print "Check $filename and $filenamebis\n";
             symlink("$workdir/$fn","$workdir/ncl_OUTPUTS/d0${domid}/$fn");
             symlink("$ENSPROCS/plot_wind_height.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_height.ncl");
             symlink("$ENSPROCS/plot_wind_RS.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_RS.ncl");
-            symlink("$ENSPROCS/plot_SFC_and_obs.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_SFC_and_obs.ncl");
+            symlink("$ENSPROCS/plot_SFC_and_obs_new.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_SFC_and_obs.ncl");
             symlink("$ENSPROCS/plot_wind_HGT.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_HGT.ncl");
             #symlink("$ENSPROCS/movexcel_to_web.csh","$workdir/ncl_OUTPUTS/movexcel_to_web.csh");
             symlink("$GSJOBDIR/ensproc/stationlist_profile_dom${wrfdomid}","$workdir/ncl_OUTPUTS/d0${domid}/stationlist_profile_dom${domid}");
@@ -876,16 +878,16 @@ print "Check $filename and $filenamebis\n";
                 $iszoom="True";
             }
             $subdom_para=qq('dom=${domid}' 'zoom="$iszoom"' 'latlon="True"' 'lat_s=$DOM_LAT1[$idom]' 'lon_s=$DOM_LON1[$idom]' 'lat_e=$DOM_LAT2[$idom]' 'lon_e=$DOM_LON2[$idom]');
-            $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'web_dir=\"$dest\"' $subdom_para plot_wind_HGT.ncl >& $mylogdir/zout.nclH.d${domid}.$valid_time.log &";
+            $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'web_dir=\"$dest\"' 'optOutput=\"cycleOnly\"' $subdom_para plot_wind_HGT.ncl >& zout.nclH.d${domid}.$valid_time.log &";
             print "\n";
             print "$ncl\n";
             system "$ncl";
             sleep 5;
 
             if (length($qcfile) > 0) {
-                  $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'qcfile_sfc_in=\"$qcfile\"'  'web_dir=\"$dest\"' $subdom_para plot_SFC_and_obs.ncl >& $mylogdir/zout.nclSFC.d${domid}.$valid_time.log &";
+                  $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'qcfile_sfc_in=\"$qcfile\"'  'web_dir=\"$dest\"' 'optOutput=\"cycleOnly\"' $subdom_para 'showStats=\"True\"' plot_SFC_and_obs.ncl >& zout.nclSFC.d${domid}.$valid_time.log &";
             } else {
-                  $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'web_dir=\"$dest\"' $subdom_para plot_SFC_and_obs.ncl >& $mylogdir/zout.nclSFC.d${domid}.$valid_time.log & ";
+                  $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'web_dir=\"$dest\"' 'optOutput=\"cycleOnly\"' $subdom_para plot_SFC_and_obs.ncl >& zout.nclSFC.d${domid}.$valid_time.log & ";
             }
             print "\n";
             print "$ncl\n";
@@ -894,7 +896,7 @@ print "Check $filename and $filenamebis\n";
 
             #only need once
             if( ! $wind_rs_done{$valid_time}) {
-                $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'dom=$domid' 'web_dir=\"$dest\"' plot_wind_RS.ncl  >& $mylogdir/zout.nclRS.d${domid}.$valid_time.log &";
+                $ncl = "$NCARG_ROOT/bin/ncl 'cycle=\"$cycle\"' 'file_in=\"$fn\"' 'dom=$domid' 'web_dir=\"$dest\"' 'optOutput=\"cycleOnly\"' plot_wind_RS.ncl  >& zout.nclRS.d${domid}.$valid_time.log &";
                 print "\n";
                 print "$ncl\n";
                 system "$ncl";
