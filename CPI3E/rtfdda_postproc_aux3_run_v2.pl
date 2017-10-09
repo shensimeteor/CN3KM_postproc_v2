@@ -5,7 +5,8 @@ use File::Copy;
 #update, sishen, 20170716, move process_qc_out_SfcObs & cpto bank earlier 
 #update, sishen, 20170717, add cmdline opts (-noplotobs, -nothinobs); adopt clean_datedir from 3KMT; use tool_file_wait_sizeconverge, to avoid emprical waiting seconds
 #update, sishen, 20171002, remove plot WRF_F SFC+OBS (moved to verif_SFC_OBS)
-#based on CPI3E, fix some bugs (when multiple domain wrf is plotted)
+#20171004, customize,for GE8CPI3E (domain differ; plots overlayed with farms)
+
 #==============================================================================#
 # 1. Define inputs
 #==============================================================================#
@@ -152,8 +153,7 @@ use File::Copy;
   $RUNDIR     = "$HOMEDIR/data/cycles/$JOB_ID/$MEM_NAME";
   # Domain parameters
   $NDOMAINS     = $NUM_DOMS;
-  @domains      = (2); #only plot domain2
-  $CHECK_DOMAIN = 2;
+  $CHECK_DOMAIN = $NDOMAINS; ##which domain to check file finish or not
 
   $FINAL_TIME_STEPS  = $CYC_INT*60.0 / $OUT_INT + $FIN_END + 1;
   $PRELIM_TIME_STEPS = $FCST_LENGTH*60.0 / $OUT_INT ;
@@ -389,8 +389,8 @@ use File::Copy;
   &clean_dir ("$DIR_SFC/$JOB_ID/",16);
 
   #do process_qc_out_SfcObs first
+  print("$thin_OBS \n");
   if($thin_OBS eq "True") {
-      print("$thin_OBS \n");
       print("to wait_qcout_or_wrff --- \n");
       $stat = &wait_qcout_or_wrff("$RUNDIR/$THIS_CYCLE", $first_date, $first_forecast, 20, 60); #wait max 20 minutes
       $d=$first_date; 
@@ -399,7 +399,7 @@ use File::Copy;
           #test to cp out
           $dir_thin_cpout=$LOC_WEB_DIR;
           #sishen, prepare thinned obs
-          $com_obs = "${GSJOBDIR}/process_qc_out_SfcObs.pl $THIS_CYCLE $d $d 3 $JOB_ID $MEM_NAME $tempdir/../ >& $mylogdir/zobs.sfcobs.$d";
+          $com_obs = "${GSJOBDIR}/process_qc_out_SfcObs.pl $THIS_CYCLE $d $d $NUM_DOMS $JOB_ID $MEM_NAME $tempdir/../ >& $mylogdir/zobs.sfcobs.$d";
           print("$com_obs \n");
           system("date");
           system ("$com_obs");
@@ -430,7 +430,7 @@ use File::Copy;
           system("$MustHaveDir $tempdir/${d}/");
           system("$MustHaveDir $tempdir/${d}/ncl_OUTPUTS/");
           system("$MustHaveDir $tempdir/${d}/ncl_OUTPUTS/stations/");
-          $com_obs = "${GSJOBDIR}/process_qc_out.pl $THIS_CYCLE $d $d 2 $JOB_ID $OBS_WEB_DIR $DIR_SPD";
+          $com_obs = "${GSJOBDIR}/process_qc_out.pl $THIS_CYCLE $d $d $NUM_DOMS $JOB_ID $OBS_WEB_DIR $DIR_SPD";
           print "\n$com_obs\n";
           system ("date");
           system ("$com_obs >& $mylogdir/zobs_${THIS_CYCLE}_$d.log");
@@ -489,7 +489,7 @@ use File::Copy;
           exit(-1);
       }else{
  #         sleep(7); #wait for file write
-          foreach $dom (@domains)  {
+          foreach $dom (&uniq(@WRF_DOM_ID))  {
               #reformat aux3 (similar with GECN9KME/ensproc_dom_aux3/nco_wrf_aux3)
               $reformat_aux3_dir="$WORK_DIR_STEP/reformat_aux3/d$dom";
               system("test -d $reformat_aux3_dir || mkdir -p $reformat_aux3_dir");
@@ -727,7 +727,8 @@ print "Check $filename and $filenamebis\n";
         my $domid = $DOM_ID[$idom]; 
         my $wrfdomid = $WRF_DOM_ID[$idom];
         my $obsdomid = $OBS_DOM_ID[$idom];
-        $file_plot_missing="$GSJOBDIR/postprocs/no_plots.gif"; #if exist, thenln -sf non-plot-time
+        #$file_plot_missing="$GSJOBDIR/postprocs/no_plots.gif"; #if exist, thenln -sf non-plot-time
+        $file_plot_missing="/data0/web/template/no_plots.gif";
         system("$MustHaveDir $workdir");
         system("$MustHaveDir $workdir/ncl_OUTPUTS2");
         system("$MustHaveDir $workdir/ncl_OUTPUTS2/d0${domid}");
@@ -747,6 +748,7 @@ print "Check $filename and $filenamebis\n";
         #link ncl
         chdir("$workdir/ncl_OUTPUTS2/d0${domid}/");
         symlink("$GSJOBDIR/ensproc/ncl_functions/convert_and_copyout.ncl", "convert_and_copyout.ncl");
+        symlink("$GSJOBDIR/ensproc/stationlist_farm_dom${wrfdomid}", "stationlist_farm");
         symlink("$ENSPROCS/plot_SFC_and_obs_CG.ncl", "plot_SFC_and_obs_CG.ncl");
         symlink("$ENSPROCS/plot_SFC_and_obs_SW.ncl", "plot_SFC_and_obs_SW.ncl");
         symlink("$ENSPROCS/plot_SFC_and_obs_RR1h.ncl", "plot_SFC_and_obs_RR1h.ncl");
@@ -792,6 +794,8 @@ print "Check $filename and $filenamebis\n";
         } else{
             symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR3H.gif");
             symlink("$file_plot_missing", "$file_date/d${domid}_RAW_WLPI.gif");
+        #    symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR3H.png");
+        #    symlink("$file_plot_missing", "$file_date/d${domid}_RAW_WLPI.png");
         }
         if ("$hau" == 0 || "$hau" == 6 || "$hau" == 12 || "$hau" == 18) {
             $ncl = "ncl 'rrh=6' 'file_in=\"$fda\"' $subdom_para plot_SFC_and_obs_RR1h.ncl >& plot_SFC_RR6h.log &";
@@ -799,6 +803,7 @@ print "Check $filename and $filenamebis\n";
             system "$ncl";
         } else{
             symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR6H.gif");
+         #   symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR6H.png");
         }
         if ("$hau" == 0 || "$hau" == 12) {
             $ncl = "ncl 'rrh=12' 'file_in=\"$fda\"' $subdom_para plot_SFC_and_obs_RR1h.ncl >& plot_SFC_RR12h.log &";
@@ -806,6 +811,7 @@ print "Check $filename and $filenamebis\n";
             system "$ncl";
         } else{
             symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR12H.gif");
+         #   symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR12H.png");
         }
         if ("$hau" == 0) {
             $ncl = "ncl 'rrh=24' 'file_in=\"$fda\"' $subdom_para plot_SFC_and_obs_RR1h.ncl >& plot_SFC_RR24h.log &";
@@ -813,6 +819,7 @@ print "Check $filename and $filenamebis\n";
             system "$ncl";
         } else{
             symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR24H.gif");
+         #   symlink("$file_plot_missing", "$file_date/d${domid}_RAW_RR24H.png");
         }
         #wait until ncl finish
         $wait_count=0; $max_wait=100; 
@@ -832,7 +839,7 @@ print "Check $filename and $filenamebis\n";
             system("mv $dir $ymdh");
         }
         print "to mv gifs to webdest\n";
-        system("cp -rf 20* $dest/");
+      #  system("cp -rf 20* $dest/"); #only output cycles
         system("cp -rf 20* $dest/../cycles/$cycle/");
 #        system("mv *log $mylogdir/");
   }
@@ -851,19 +858,17 @@ print "Check $filename and $filenamebis\n";
         system("$MustHaveDir $workdir/ncl_OUTPUTS/stations");
         chdir "$workdir";
 
-        $fn = "aux3_reformatted.nc";
-        $fn_path = "$workdir/reformat_aux3/d${wrfdomid}/aux3_reformatted.nc";
+        $fn = "$workdir/reformat_aux3/d${wrfdomid}/aux3_reformatted.nc";
         if ( -e $fn ) {
             chdir "$workdir/ncl_OUTPUTS/d0${domid}";
-            symlink("$fn_path", "$fn");
-          #  symlink("$workdir/$fn","$workdir/ncl_OUTPUTS/d0${domid}/$fn");
             symlink("$ENSPROCS/plot_wind_height.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_height.ncl");
             symlink("$ENSPROCS/plot_wind_RS.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_RS.ncl");
-            symlink("$ENSPROCS/plot_SFC_and_obs_new.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_SFC_and_obs.ncl");
+            symlink("$ENSPROCS/plot_SFC_and_obs_UPDATED.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_SFC_and_obs.ncl");
             symlink("$ENSPROCS/plot_wind_HGT.ncl","$workdir/ncl_OUTPUTS/d0${domid}/plot_wind_HGT.ncl");
             #symlink("$ENSPROCS/movexcel_to_web.csh","$workdir/ncl_OUTPUTS/movexcel_to_web.csh");
             symlink("$GSJOBDIR/ensproc/stationlist_profile_dom${wrfdomid}","$workdir/ncl_OUTPUTS/d0${domid}/stationlist_profile_dom${domid}");
             symlink("$GSJOBDIR/ensproc/stationlist_site_dom${wrfdomid}","$workdir/ncl_OUTPUTS/d0${domid}/stationlist_site_dom${domid}");
+            symlink("$GSJOBDIR/ensproc/stationlist_farm_dom${wrfdomid}", "$workdir/ncl_OUTPUTS/d0${domid}/stationlist_farm");
             symlink("$GSJOBDIR/ensproc/map.ascii","$workdir/ncl_OUTPUTS/d0${domid}/map.ascii");
             symlink("$GSJOBDIR/ensproc/ncl_functions/initial_mpres_d0${domid}.ncl", "$workdir/ncl_OUTPUTS/d0${domid}/initial_mpres.ncl");
             symlink("$GSJOBDIR/ensproc/ncl_functions/convert_figure.ncl", "$workdir/ncl_OUTPUTS/d0${domid}/convert_figure.ncl");
@@ -1325,6 +1330,11 @@ print "Check $filename and $filenamebis\n";
              system("rm -rf $cleandir/$item");
            }
       }
+  }
+   # for an array, remove duplicated values
+  sub uniq {
+        my %seen;
+        return grep { !$seen{$_}++ } @_;
   }
       
 
