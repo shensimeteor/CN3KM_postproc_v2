@@ -6,7 +6,8 @@ GECN3KM postproc:
 - NO RIP plots
 
 usage:
-- put ensproc/{no_plots.gif, ncl_functions(need to modify), obs_thin(need to modify, namelist)}  to $GMID/ensproc/
+- put ensproc/{ncl_functions(need to modify), obs_thin(need to modify, namelist)}  to $GMID/ensproc/
+- put postprocs/no_plots.gif to $GMID/postprocs/
 - put process_qc_out_SfcObs.pl to $GMID: tool to thin obs & convert to nc
 - put postproc.subdom.pl to $GMID (need to modify): namelist to define domain /subdomain to plot, usually save with verif_sfobs.input.pl- merge CN with $CSH_ARCHIVE/NCL 
 - put kill_postproc.sh, rtfdda_postproc_aux3_run_v2.pl, rtfdda_postproc_aux3_run_v2.pl (all need modify) to $GMID/
